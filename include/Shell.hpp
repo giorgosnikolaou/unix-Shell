@@ -25,8 +25,6 @@ class Shell : public Visitor {
         string history[MAX_HISTORY];
         void parse_run(string input);
 
-        pid_t running;
-
         string read();
 
     public:

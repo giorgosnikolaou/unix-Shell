@@ -114,7 +114,6 @@ void Shell::visit(BasicCommand* bc) {
     }
 
     if (!bc->bg) {
-        running = pid;
         
         int temp;
         do {
