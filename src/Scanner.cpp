@@ -104,17 +104,16 @@ string Scanner::read_word() {
 				string env_var = res[0];
 				env_var = env_var.substr(1);
 
-				for (size_t i = 0; i < env_var.length() + 1; i++)
+				for (size_t i = 0; i < env_var.length(); i++)
 					read();
 
 				char* rep = std::getenv(env_var.data());
-
 				ret += rep ? rep : "";
 			}
 			else
 				ret += ahead;
 		}
-		if ((ahead == '"' || ahead == '\'') && !escaped)
+		else if ((ahead == '"' || ahead == '\'') && !escaped)
 			ret += read_str(ahead);
 		else //if (ahead != '\\' || escaped)
 			ret += ahead;

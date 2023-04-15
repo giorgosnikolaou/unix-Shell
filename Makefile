@@ -20,7 +20,7 @@ OBJS    := $(patsubst $(SRC)/%.cpp,$(SRC)/%.o,$(SRCS)) $(MAIN)/main.o
 EXEC = main
 
 # Command line arguments
-ARGS = ./input.lex ../../ParserGenerator/ ../../ParserGenerator/
+ARGS = 
 
 $(EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $(EXEC)

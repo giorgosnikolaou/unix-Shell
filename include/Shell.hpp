@@ -1,32 +1,38 @@
 #pragma once
 
 #include "Parser.hpp"
+#include <map>
 
+#define MAX_HISTORY 20
+#define map std::map
 
-class ShellVisitor : public Visitor {
+class Shell : public Visitor {
     private:
-        void run(vector<IO*> ios, char* const * argv);
-    public:
-        virtual void visit(Commands* commands);
-        virtual void visit(In* in);
-        virtual void visit(Out* out);
-        virtual void visit(BasicCommand* bc);
-        virtual void visit(Pipe* pipe);
-};
+        void visit(Commands* commands);
+        void visit(In* in);
+        void visit(Out* out);
+        void visit(BasicCommand* bc);
+        void visit(Pipe* pipe);
 
-class Shell {
-    private:
         Parser parser;
-        Visitor* visitor;
+        
+        bool cont;
 
-        // history
-        // aliases
+        map<string, Node*> aliases;
+        
+        bool completed;
+        size_t last;
+        string history[MAX_HISTORY];
+        void parse_run(string input);
+
+        pid_t running;
 
         string read();
+
     public:
         Shell();
         ~Shell();
 
-        bool execute();
+        void execute();
 
 };
