@@ -70,27 +70,23 @@ void Parser::commands_end() {
 Command* Parser::command() {
     // printf("command\n");
     BasicCommand* com = cmd();
-    return piped_cmd(com);
+    return command_end((ahead && ahead->cmp(PIPE)) ? piped_cmd(com) : com);
 }
 Command* Parser::piped_cmd(BasicCommand* left) {
     // printf("piped_cmd1\n");
     if (consume_on_cond(PIPE)) {
         BasicCommand* right = cmd();
-        return piped_cmd(new Pipe(left, right));
+        return new Pipe(left, piped_cmd(right));
     }
 
-    return left;
+    SubPipe* ret = new SubPipe(left);
+    delete left;
+    return ret;
 }
 
-Command* Parser::piped_cmd(Pipe* pipe) {
-    // printf("piped_cmd2\n");
-    if (consume_on_cond(PIPE)) {
-        BasicCommand* right = cmd();
-        pipe->add(right);
-        return piped_cmd(pipe);
-    }
-
-    return pipe;
+Command* Parser::command_end(Command* command) {
+    command->bg = consume_on_cond(BG);
+    return command;
 }
 
 BasicCommand* Parser::cmd() {
@@ -130,9 +126,6 @@ void Parser::cmd_suffix(BasicCommand* bc) {
         cmd_arg(bc);
         cmd_suffix(bc);
     }
-    else if (consume_on_cond(BG)) {
-        bc->set_bg(true);
-    }    
 }
 
 IO* Parser::red() {

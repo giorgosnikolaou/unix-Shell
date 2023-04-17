@@ -1,4 +1,5 @@
 #include <iostream>
+#include <unistd.h>
 #include "Shell.hpp"
 
 using namespace std;

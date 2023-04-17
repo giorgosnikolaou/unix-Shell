@@ -16,7 +16,7 @@ class Parser {
 
         Command* command();
         Command* piped_cmd(BasicCommand* left);
-        Command* piped_cmd(Pipe* left);
+        Command* command_end(Command* command);
 
         BasicCommand* cmd();
         void cmd_prefix(BasicCommand* bc);

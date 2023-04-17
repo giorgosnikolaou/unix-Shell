@@ -10,6 +10,7 @@ class Commands;
 class In;
 class Out;
 class BasicCommand;
+class SubPipe;
 class Pipe;
 
 class Visitor {
@@ -20,6 +21,7 @@ class Visitor {
         virtual void visit(In* in);
         virtual void visit(Out* out);
         virtual void visit(BasicCommand* bc);
+        virtual void visit(SubPipe* sp);
         virtual void visit(Pipe* pipe);
 };
 
@@ -36,6 +38,7 @@ class Node {
 class Command : public Node {
     private:
     public:
+        bool bg;
         virtual ~Command();
         virtual void accept(Visitor* v) = 0;
 };
@@ -59,6 +62,7 @@ class IO : public Node {
         IO(string file_);
         void set_file(string file_);
         virtual void accept(Visitor* v) = 0;
+        virtual IO* copy() = 0;
 };
 
 class In : public IO {
@@ -66,7 +70,8 @@ class In : public IO {
     public:
         In(string file = "");
         void accept(Visitor* v);
-        virtual void print();
+        void print();
+        IO* copy();
 };
 
 class Out : public IO {
@@ -76,20 +81,20 @@ class Out : public IO {
         Out(bool append_ = false, string file = "");
         void set_append(bool append_);
         void accept(Visitor* v);
-        virtual void print();
+        void print();
+        IO* copy();
 };
 
 class BasicCommand : public Command {
-    private:
+    protected:
         string executable;
         vector<string> args;
     public:
         char** argv;
         vector<IO*> ios;  
-        bool bg;
         int io[2];
 
-        BasicCommand(string executable_ = "", bool bg_ = false);
+        BasicCommand(string executable_ = "");
         ~BasicCommand();
 
         void set_exe(string executable_);
@@ -103,14 +108,22 @@ class BasicCommand : public Command {
         virtual void print();
 };
 
+class SubPipe : public BasicCommand {
+    private:
+    public:
+        SubPipe(BasicCommand* bc);
+        void accept(Visitor* v);
+};
+
 class Pipe : public Command {
     private:
     public:
-        vector<BasicCommand*> commands;
+        SubPipe* c1;
+        Command* c2;
 
-        Pipe(BasicCommand* left, BasicCommand* right);
+        Pipe(BasicCommand* left, Command* right);
         ~Pipe();
-        void add(BasicCommand* command);
+        
         void accept(Visitor* v);
         virtual void print();
 };

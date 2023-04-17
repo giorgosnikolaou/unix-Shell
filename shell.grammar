@@ -5,7 +5,9 @@ command_end -> NL | QM NL
 command_tail -> QM command_line command_tail 
                | ε
 
-command_line -> complete_command piped_cmd
+command_line -> complete_command piped_cmd command_line_end
+
+command_line_end -> & | ε
 
 piped_cmd -> PIPE complete_command piped_cmd
             | ε
@@ -17,7 +19,6 @@ cmd_prefix -> redirection cmd_prefix
 
 cmd_suffix -> redirection cmd_suffix
              | cmd_arg cmd_suffix
-             | &
              | ε
 
 redirection -> redirection_op WORD

@@ -12,6 +12,7 @@ class Shell : public Visitor {
         void visit(In* in);
         void visit(Out* out);
         void visit(BasicCommand* bc);
+        void visit(SubPipe* sp);
         void visit(Pipe* pipe);
 
         Parser parser;
@@ -26,6 +27,7 @@ class Shell : public Visitor {
         void parse_run(string input);
 
         string read();
+        bool check_custom(BasicCommand* bc);
 
     public:
         Shell();
