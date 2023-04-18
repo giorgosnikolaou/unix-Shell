@@ -157,6 +157,9 @@ void Shell::visit(BasicCommand* bc) {
     // Parent 
     if (!bc->bg) 
         wait_on_pid(pid);
+    else
+        setpgid(pid,0);
+    
     
 }
 
@@ -177,7 +180,7 @@ void Shell::visit(SubPipe* sp) {
 }
 
 void Shell::visit(Pipe* pipe_) {
-
+    
     int pid[2]; 
     int pipeid[2]; 
     CPIPE(pipeid);
@@ -194,6 +197,10 @@ void Shell::visit(Pipe* pipe_) {
         exit(0);
     }
 
+    if (pipe_->bg)
+        setpgid(pid[0], 0);
+
+
     FORK(pid[1]);
     if (pid[1] == 0) {
 
@@ -205,6 +212,9 @@ void Shell::visit(Pipe* pipe_) {
         pipe_->c2->accept(this);
         exit(0);
     }
+
+    if (pipe_->bg)
+        setpgid(pid[1], 0);
 
     close(pipeid[0]);
     close(pipeid[1]);
@@ -219,8 +229,6 @@ void Shell::visit(Pipe* pipe_) {
 
 
 Shell::Shell() : parser(Parser()), cont(true), completed(false), last(0) { 
-    setpgid(0,10);
-    tcsetpgrp(10, getpid()); // makefile hack
 
     signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
