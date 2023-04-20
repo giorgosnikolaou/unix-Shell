@@ -22,6 +22,12 @@
         exit(EXIT_FAILURE);         \
     }                               \
 
+#define ASSERT(call, arg1, arg2)                        \
+    if (call(arg1, arg2) != 0) {                        \
+        perror(#call "(" #arg1 ", " #arg2 ") failed");  \
+        exit(0);                                        \
+    }                                                   \
+
 static void set_fd(int fd, int type) {
     close(type);    // maybe not needed, need to see doc
     dup2(fd, type);
@@ -49,14 +55,16 @@ void Shell::visit(Out* out) {
 void handle_sigchld(int signum) {
     signal(SIGCHLD, handle_sigchld);
     while (waitpid(0, NULL, WNOHANG) > 0);
+        // fprintf(stderr, "hehehehehe\n");
 }
 
-static void wait_on_pid(int pid) {
+static void wait_on_pid(int pid) {        
     int temp;
     do {
         waitpid(pid, &temp, WUNTRACED);
     } while (!WIFEXITED(temp) && !WIFSIGNALED(temp) && !WIFSTOPPED(temp));
 }
+
 
 // static char* custom[5] = { "exit", "history", "cd", "createalias", "destroyalias" }; 
 bool Shell::check_custom(BasicCommand* bc) {
@@ -99,39 +107,6 @@ bool Shell::check_custom(BasicCommand* bc) {
 
 void Shell::visit(BasicCommand* bc) {
 
-    // handle special commands
-    if (strcmp(bc->argv[0], "exit") == 0) {
-        cont = false;
-        return ;
-    }
-    else if (strcmp(bc->argv[0], "history") == 0) {
-        if (bc->argv[1]) {
-
-            if (!std::regex_match(bc->argv[1], std::regex(R"([0-9]*)")))
-                throw Exception("use: history <positive int>?");
-
-            size_t num = std::stoi(bc->argv[1]);
-
-            if (num > last || num < 1)
-                throw Exception("history: out of range");
-            
-            parse_run(history[num - 1]);
-
-            return ;
-        }
-
-        // printf("last %ld\n", last);
-        for (size_t i = 0, j = 1; i < MAX_HISTORY; i++) {
-            if (history[(last + i) % MAX_HISTORY].compare("") != 0)
-                printf("[%2ld] %s", j++, history[(last + i) % MAX_HISTORY].data());
-        }
-
-        return ;
-    }
-    // else if (strcmp(bc->argv[0], "cd") == 0)
-    // else if (strcmp(bc->argv[0], "createalias") == 0)
-    // else if (strcmp(bc->argv[0], "destroyalias") == 0)
-
     if (check_custom(bc))
         return ;
 
@@ -139,14 +114,17 @@ void Shell::visit(BasicCommand* bc) {
 
     pid_t pid; 
     FORK(pid);
+
+    ASSERT(setpgid, pid, pid);
   
     if (pid == 0) {
-
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
-
+            
         for (IO* io : bc->ios) 
             io->accept(this);
+
+        // fprintf(stderr, "pid of child: %d\n", getpid());
 
         if (execvp(bc->argv[0], bc->argv) < 0) 
             perror("exec() failed");
@@ -154,11 +132,12 @@ void Shell::visit(BasicCommand* bc) {
         exit(0);
     }
 
+
     // Parent 
-    if (!bc->bg) 
+    if (!bc->bg) {
+        ASSERT(tcsetpgrp, 0, pid);
         wait_on_pid(pid);
-    else
-        setpgid(pid,0);
+    }
     
     
 }
@@ -180,14 +159,19 @@ void Shell::visit(SubPipe* sp) {
 }
 
 void Shell::visit(Pipe* pipe_) {
-    
+
     int pid[2]; 
     int pipeid[2]; 
     CPIPE(pipeid);
 
     FORK(pid[0]);
-    if (pid[0] == 0) {
 
+    if (pipe_->pid == -1)
+        pipe_->pid = pid[0];
+
+    ASSERT(setpgid, pid[0], pipe_->pid);
+
+    if (pid[0] == 0) {
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
 
@@ -197,31 +181,28 @@ void Shell::visit(Pipe* pipe_) {
         exit(0);
     }
 
-    if (pipe_->bg)
-        setpgid(pid[0], 0);
-
-
     FORK(pid[1]);
-    if (pid[1] == 0) {
+    
+    ASSERT(setpgid, pid[1], pipe_->pid);
 
+    if (pid[1] == 0) {
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
-        
+
         close(pipeid[1]);
         set_fd(pipeid[0], STDIN_FILENO);
         pipe_->c2->accept(this);
         exit(0);
     }
 
-    if (pipe_->bg)
-        setpgid(pid[1], 0);
-
     close(pipeid[0]);
     close(pipeid[1]);
 
+
     if (!pipe_->bg) {
-        wait_on_pid(pid[0]);
-        wait_on_pid(pid[1]);
+        ASSERT(tcsetpgrp, 0, pipe_->pid);
+        wait_on_pid(-pipe_->pid);
+        wait_on_pid(-pipe_->pid);
     }
 }
 
@@ -233,7 +214,13 @@ Shell::Shell() : parser(Parser()), cont(true), completed(false), last(0) {
     signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
     signal(SIGCHLD, handle_sigchld);
-    
+
+    signal(SIGTTIN,SIG_IGN);
+    signal(SIGTTOU, SIG_IGN);
+
+    ASSERT(setpgid, 0, 0);
+    ASSERT(tcsetpgrp, 0, getpid());    
+        
     for (size_t i = 0; i < MAX_HISTORY; i++)
         history[i] = "";
 }
@@ -270,7 +257,7 @@ void Shell::parse_run(string input) {
     }
 }
 
-int aaa = 0;
+
 void Shell::execute() {
 
     while(cont) {
@@ -278,17 +265,13 @@ void Shell::execute() {
         printf("\nin-mysh-now:> ");
 
         string input = read();
-        // if (aaa++ == 4) {
-        //     // printf("\t\t--------------------%s\n", input.data());
-        //     break;
-        // }
 
         parse_run(input);
 
-        // printf("hello\n");
 
-        // break;  
-        // while(1);
+
+        ASSERT(tcsetpgrp, 0, getpid()) 
+        
     }
 }
 

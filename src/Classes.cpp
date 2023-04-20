@@ -171,7 +171,7 @@ void SubPipe::accept(Visitor* v) {
     v->visit(this);
 }
 
-Pipe::Pipe(BasicCommand* left, Command* right) : c1(new SubPipe(left)), c2(right) { delete left; bg = false; }
+Pipe::Pipe(BasicCommand* left, Command* right) : c1(new SubPipe(left)), c2(right), pid(-1) { delete left; bg = false; }
 Pipe::~Pipe() { 
     delete c1;
     delete c2;

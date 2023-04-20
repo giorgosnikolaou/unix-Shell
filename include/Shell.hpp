@@ -29,6 +29,7 @@ class Shell : public Visitor {
         string read();
         bool check_custom(BasicCommand* bc);
 
+
     public:
         Shell();
         ~Shell();

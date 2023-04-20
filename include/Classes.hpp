@@ -121,6 +121,8 @@ class Pipe : public Command {
         SubPipe* c1;
         Command* c2;
 
+        pid_t pid;
+
         Pipe(BasicCommand* left, Command* right);
         ~Pipe();
         
