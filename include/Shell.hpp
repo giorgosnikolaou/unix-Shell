@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Parser.hpp"
 #include <map>
+#include "Parser.hpp"
 
 #define MAX_HISTORY 20
 #define map std::map
@@ -19,14 +19,15 @@ class Shell : public Visitor {
         
         bool cont;
 
-        map<string, Node*> aliases;
+        map<string, string> aliases;
         
         bool completed;
         size_t last;
         string history[MAX_HISTORY];
-        void parse_run(string input);
+        void parse_run(string input, string hist = "");
 
         string read();
+        void add_history(string c);
         bool check_custom(BasicCommand* bc);
 
 

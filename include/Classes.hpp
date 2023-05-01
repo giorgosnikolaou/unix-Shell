@@ -3,7 +3,10 @@
 #include <string>
 
 #define vector std::vector
-#define string std::string
+
+#ifndef string
+    #define string std::string
+#endif
 
 class Node;
 class Commands;

@@ -21,10 +21,10 @@ class Token {
 		string value;
 	public:
 		Token(ID id, string value);
-		void print();
-		bool cmp(ID id);
-		ID gid();
-		string gvalue();
+		void print() const;
+		bool cmp(ID id) const;
+		ID gid() const;
+		string gvalue() const;
 		static string gname(ID id);
 };
 

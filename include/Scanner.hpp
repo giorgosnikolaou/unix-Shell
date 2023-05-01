@@ -10,17 +10,6 @@ enum State {
 
 #define vector std::vector
 
-// // // // // // // // // // // // // // // // // // // //
-//                      HOW TO USE                       //
-// // // // // // // // // // // // // // // // // // // //
-/*
-	Scanner s = Scanner("./test_input.txt");
-
-	while (s.next());
-
-	s.print();
-*/
-
 class Scanner {
 	public:
 		Scanner();

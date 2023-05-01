@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <regex>
 #include <signal.h>
-
+#include <pwd.h>
 
 #include "Shell.hpp"
 
@@ -22,7 +22,13 @@
         exit(EXIT_FAILURE);         \
     }                               \
 
-#define ASSERT(call, arg1, arg2)                        \
+#define ASSERT1(call, arg)                  \
+    if (call(arg) != 0) {                   \
+        perror(#call "(" #arg ") failed");  \
+        exit(0);                            \
+    }                                       \
+
+#define ASSERT2(call, arg1, arg2)                        \
     if (call(arg1, arg2) != 0) {                        \
         perror(#call "(" #arg1 ", " #arg2 ") failed");  \
         exit(0);                                        \
@@ -51,13 +57,6 @@ void Shell::visit(Out* out) {
     set_fd(fd, STDOUT_FILENO);
 }
 
-// Reap zombies
-void handle_sigchld(int signum) {
-    signal(SIGCHLD, handle_sigchld);
-    while (waitpid(0, NULL, WNOHANG) > 0);
-        // fprintf(stderr, "hehehehehe\n");
-}
-
 static void wait_on_pid(int pid) {        
     int temp;
     do {
@@ -66,7 +65,7 @@ static void wait_on_pid(int pid) {
 }
 
 
-// static char* custom[5] = { "exit", "history", "cd", "createalias", "destroyalias" }; 
+
 bool Shell::check_custom(BasicCommand* bc) {
     
     if (strcmp(bc->argv[0], "exit") == 0) {
@@ -76,8 +75,8 @@ bool Shell::check_custom(BasicCommand* bc) {
     else if (strcmp(bc->argv[0], "history") == 0) {
         if (bc->argv[1]) {
 
-            if (!std::regex_match(bc->argv[1], std::regex(R"([0-9]*)")))
-                throw Exception("use: history <positive int>?");
+            if (bc->argv[2] || !std::regex_match(bc->argv[1], std::regex(R"([0-9]*)"))) 
+                throw Exception("Usage: history <positive int>?");
 
             size_t num = std::stoi(bc->argv[1]);
 
@@ -86,8 +85,6 @@ bool Shell::check_custom(BasicCommand* bc) {
             
             parse_run(history[num - 1]);
 
-            exit(0);
-
             return true;
         }
 
@@ -95,12 +92,59 @@ bool Shell::check_custom(BasicCommand* bc) {
             if (history[(last + i) % MAX_HISTORY].compare("") != 0)
                 printf("[%2ld] %s", j++, history[(last + i) % MAX_HISTORY].data());
         }
+
+        // add_history("history");
         
         return true;
     }
-    // else if (strcmp(bc->argv[0], "cd") == 0)
-    // else if (strcmp(bc->argv[0], "createalias") == 0)
-    // else if (strcmp(bc->argv[0], "destroyalias") == 0)
+    else if (strcmp(bc->argv[0], "cd") == 0) {       
+        char* path = bc->argv[1];
+
+        if (!bc->argv[1] || strcmp(bc->argv[1], "~") == 0) {
+            if (!(path = getenv("HOME"))) 
+                path = getpwuid(getuid())->pw_dir;
+        }
+
+        ASSERT1(chdir, path);
+
+        return true;
+    }
+    else if (strcmp(bc->argv[0], "createalias") == 0) {
+        if (!bc->argv[1] || !bc->argv[2] || bc->argv[3]) 
+            throw Exception("Usage: createalias <alias> <command>\n");
+        
+        if (aliases.count(bc->argv[1]) == 0) 
+            aliases.insert({bc->argv[1], bc->argv[2]});
+        else
+            aliases[bc->argv[1]] = bc->argv[2]; 
+
+        printf("Alias created succesfully!\n");
+        return true;
+    }
+    else if (strcmp(bc->argv[0], "destroyalias") == 0) {
+        if (!bc->argv[1] || bc->argv[2])
+            throw Exception("Usage: destroyalias <alias>\n");
+        
+        if (aliases.erase(bc->argv[1]))
+            printf("Alias destroyed succesfully!\n");
+        else
+            printf("Alias %s doesn't exist!\n", bc->argv[1]);
+        return true;
+        
+    }
+
+    
+    if (aliases.count(bc->argv[0])) {
+        string to_run = aliases.at(bc->argv[0]);
+        for (size_t i = 1; bc->argv[i]; i++)
+            to_run += bc->argv[i];
+
+        to_run += "\n";
+
+        parse_run(to_run, bc->argv[0]);
+
+        return true;
+    }
 
     return false;
 }
@@ -110,12 +154,10 @@ void Shell::visit(BasicCommand* bc) {
     if (check_custom(bc))
         return ;
 
-    // check for alias and parse_run(replaced);
-
     pid_t pid; 
     FORK(pid);
 
-    ASSERT(setpgid, pid, pid);
+    ASSERT2(setpgid, pid, pid);
   
     if (pid == 0) {
         signal(SIGINT, SIG_DFL);
@@ -124,20 +166,18 @@ void Shell::visit(BasicCommand* bc) {
         for (IO* io : bc->ios) 
             io->accept(this);
 
-        // fprintf(stderr, "pid of child: %d\n", getpid());
-
         if (execvp(bc->argv[0], bc->argv) < 0) 
             perror("exec() failed");
 
         exit(0);
     }
 
-
-    // Parent 
     if (!bc->bg) {
-        ASSERT(tcsetpgrp, 0, pid);
+        ASSERT2(tcsetpgrp, 0, pid);
         wait_on_pid(pid);
     }
+    else
+        printf("[1] %d\n", pid);
     
     
 }
@@ -164,18 +204,19 @@ void Shell::visit(Pipe* pipe_) {
     int pipeid[2]; 
     CPIPE(pipeid);
 
+
     FORK(pid[0]);
 
     if (pipe_->pid == -1)
         pipe_->pid = pid[0];
 
-    ASSERT(setpgid, pid[0], pipe_->pid);
+    ASSERT2(setpgid, pid[0], pipe_->pid);
 
     if (pid[0] == 0) {
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
 
-        close(pipeid[0]);
+        close(pipeid[STDIN_FILENO]);
         set_fd(pipeid[1], STDOUT_FILENO);
         pipe_->c1->accept(this);
         exit(0);
@@ -183,13 +224,13 @@ void Shell::visit(Pipe* pipe_) {
 
     FORK(pid[1]);
     
-    ASSERT(setpgid, pid[1], pipe_->pid);
+    ASSERT2(setpgid, pid[1], pipe_->pid);
 
     if (pid[1] == 0) {
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
 
-        close(pipeid[1]);
+        close(pipeid[STDOUT_FILENO]);
         set_fd(pipeid[0], STDIN_FILENO);
         pipe_->c2->accept(this);
         exit(0);
@@ -200,26 +241,28 @@ void Shell::visit(Pipe* pipe_) {
 
 
     if (!pipe_->bg) {
-        ASSERT(tcsetpgrp, 0, pipe_->pid);
+        ASSERT2(tcsetpgrp, 0, pipe_->pid);
         wait_on_pid(-pipe_->pid);
         wait_on_pid(-pipe_->pid);
     }
+    else
+        printf("[1] %d\n", pipe_->pid);
 }
 
-// dd if=/dev/urandom | base64 | head -10000 | tail -1
+
 
 
 Shell::Shell() : parser(Parser()), cont(true), completed(false), last(0) { 
 
     signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
-    signal(SIGCHLD, handle_sigchld);
+    signal(SIGCHLD, SIG_IGN);
 
     signal(SIGTTIN,SIG_IGN);
     signal(SIGTTOU, SIG_IGN);
 
-    ASSERT(setpgid, 0, 0);
-    ASSERT(tcsetpgrp, 0, getpid());    
+    ASSERT2(setpgid, 0, 0);
+    ASSERT2(tcsetpgrp, 0, getpid());    
         
     for (size_t i = 0; i < MAX_HISTORY; i++)
         history[i] = "";
@@ -234,7 +277,14 @@ string Shell::read() {
     return str + "\n";
 }
 
-void Shell::parse_run(string input) {
+
+void Shell::add_history(string c) {
+    history[last++] = c;
+    last %= MAX_HISTORY;
+    completed = completed || last == 0;
+}
+
+void Shell::parse_run(string input, string hist) {
     size_t lastb = last;
 
     Node* root = NULL;
@@ -242,7 +292,6 @@ void Shell::parse_run(string input) {
     try {
         root = parser.parse(input.data());
         root->accept(this);
-        // root->print();
         delete root;
     }
     catch (Exception& e) {
@@ -250,11 +299,10 @@ void Shell::parse_run(string input) {
         printf("%s\n", e.what());
     }
 
-    if (last == lastb) {
-        history[last++] = input;
-        last %= MAX_HISTORY;
-        completed = completed || last == 0;
-    }
+    if (hist.compare("") != 0)
+        add_history(hist + "\n");
+    else if (last == lastb) 
+        add_history(input);
 }
 
 
@@ -268,11 +316,25 @@ void Shell::execute() {
 
         parse_run(input);
 
-
-
-        ASSERT(tcsetpgrp, 0, getpid()) 
-        
+        ASSERT2(tcsetpgrp, 0, getpid()) 
     }
+
+    // ps h --ppid 1142 -o pid
+
+    // string name = std::to_string(getpid());
+
+    // pid_t pid;
+    // FORK(pid);
+
+    // if (pid == 0) {
+
+    //     if (execlp("ps", "ps", "h", "-o", "pid", "--ppid", name.data(), NULL) < 0) 
+    //         perror("exec() failed");
+
+    //     exit(0);
+    // }
+
+    // wait_on_pid(pid);
 }
 
 
