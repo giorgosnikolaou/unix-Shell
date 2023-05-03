@@ -115,7 +115,7 @@ string Scanner::read_word() {
 		}
 		else if ((ahead == '"' || ahead == '\'') && !escaped)
 			ret += read_str(ahead);
-		else //if (ahead != '\\' || escaped)
+		else 
 			ret += ahead;
 		
 		escaped = ahead == '\\' && !escaped;
@@ -163,18 +163,13 @@ bool Scanner::get_next() {
 	else {
 		// glob here and append to vector with tokens
 		string to_glob = read_word();
-		
-		// printf("to_glob: %s\n", to_glob.data());
 
 		glob_t gstruct;
 		add = glob(to_glob.data(), GLOB_ERR , NULL, &gstruct);
 
 		if(add) {
-			if (add != GLOB_NOMATCH && add != GLOB_MARK) {
-				// printf("error: %d\n", add);
-				
+			if (add != GLOB_NOMATCH && add != GLOB_MARK) 
 				throw Exception("Error while globing!\n");
-			}
 			
 			ret = new Token(WORD, to_glob);
 		}
@@ -182,7 +177,6 @@ bool Scanner::get_next() {
 			
 			char** found = gstruct.gl_pathv;
 			while(*found) {
-				// printf("\t%s\n", *found);
 				tokens.push_back(new Token(WORD, *found));
 				found++;
 			}

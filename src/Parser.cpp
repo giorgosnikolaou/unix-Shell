@@ -45,7 +45,8 @@ Commands* Parser::commands() {
     return coms;
 }
 void Parser::commands_tail(Commands* coms) {
-    if (consume_on_cond(QM) && ahead && !ahead->cmp(NL)) { // LL(1.5) :-)
+    if (consume_on_cond(QM) && ahead && !ahead->cmp(NL)) { // LL(2) :-)
+
         Command* com = command();
         coms->add(com);
         

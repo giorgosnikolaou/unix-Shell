@@ -23,12 +23,10 @@
     }                               \
 
 #define ASSERT1(call, arg)                  \
-    if (call(arg) != 0) {                   \
+    if (call(arg) != 0)                     \
         perror(#call "(" #arg ") failed");  \
-        exit(0);                            \
-    }                                       \
 
-#define ASSERT2(call, arg1, arg2)                        \
+#define ASSERT2(call, arg1, arg2)                       \
     if (call(arg1, arg2) != 0) {                        \
         perror(#call "(" #arg1 ", " #arg2 ") failed");  \
         exit(0);                                        \
@@ -45,7 +43,6 @@ void Shell::visit(Commands* commands) {
         c->accept(this);
 }
 
-// check for perms, set004 slide 25
 void Shell::visit(In* in) {
     int fd = open(in->file.data(), O_RDONLY);
     set_fd(fd, STDIN_FILENO);
@@ -63,8 +60,6 @@ static void wait_on_pid(int pid) {
         waitpid(pid, &temp, WUNTRACED);
     } while (!WIFEXITED(temp) && !WIFSIGNALED(temp) && !WIFSTOPPED(temp));
 }
-
-
 
 bool Shell::check_custom(BasicCommand* bc) {
     
@@ -157,9 +152,10 @@ void Shell::visit(BasicCommand* bc) {
     pid_t pid; 
     FORK(pid);
 
-    ASSERT2(setpgid, pid, pid);
-  
     if (pid == 0) {
+        
+        ASSERT2(setpgid, pid, pid);
+
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
             
@@ -258,7 +254,7 @@ Shell::Shell() : parser(Parser()), cont(true), completed(false), last(0) {
     signal(SIGTSTP, SIG_IGN);
     signal(SIGCHLD, SIG_IGN);
 
-    signal(SIGTTIN,SIG_IGN);
+    signal(SIGTTIN, SIG_IGN);
     signal(SIGTTOU, SIG_IGN);
 
     ASSERT2(setpgid, 0, 0);
@@ -305,7 +301,6 @@ void Shell::parse_run(string input, string hist) {
         add_history(input);
 }
 
-
 void Shell::execute() {
 
     while(cont) {
@@ -318,23 +313,6 @@ void Shell::execute() {
 
         ASSERT2(tcsetpgrp, 0, getpid()) 
     }
-
-    // ps h --ppid 1142 -o pid
-
-    // string name = std::to_string(getpid());
-
-    // pid_t pid;
-    // FORK(pid);
-
-    // if (pid == 0) {
-
-    //     if (execlp("ps", "ps", "h", "-o", "pid", "--ppid", name.data(), NULL) < 0) 
-    //         perror("exec() failed");
-
-    //     exit(0);
-    // }
-
-    // wait_on_pid(pid);
 }
 
 
