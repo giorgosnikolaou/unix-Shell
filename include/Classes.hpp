@@ -42,6 +42,7 @@ class Command : public Node {
     private:
     public:
         bool bg;
+        virtual void set_pid(pid_t pid);
         virtual ~Command();
         virtual void accept(Visitor* v) = 0;
 };
@@ -125,6 +126,8 @@ class Pipe : public Command {
         Command* c2;
 
         pid_t pid;
+
+        void set_pid(pid_t pid_);
 
         Pipe(BasicCommand* left, Command* right);
         ~Pipe();

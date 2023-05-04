@@ -30,6 +30,8 @@ class Shell : public Visitor {
         void add_history(string c);
         bool check_custom(BasicCommand* bc);
 
+        pid_t shell_pid;
+
 
     public:
         Shell();

@@ -128,3 +128,10 @@ void Pipe::print() {
     c2->print();
     
 }
+
+
+void Command::set_pid(pid_t pid) {}
+void Pipe::set_pid(pid_t pid_) {
+    pid = pid_;
+    c2->set_pid(pid_);
+}

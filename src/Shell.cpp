@@ -152,10 +152,11 @@ void Shell::visit(BasicCommand* bc) {
     pid_t pid; 
     FORK(pid);
 
-    if (pid == 0) {
-        
+    if (pid != 0)
         ASSERT2(setpgid, pid, pid);
 
+    if (pid == 0) {
+        
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
             
@@ -179,8 +180,6 @@ void Shell::visit(BasicCommand* bc) {
 }
 
 void Shell::visit(SubPipe* sp) {
-    // put custom commands here, make function maybe?
-
     if (check_custom(sp))
         return ;
 
@@ -200,12 +199,11 @@ void Shell::visit(Pipe* pipe_) {
     int pipeid[2]; 
     CPIPE(pipeid);
 
-
     FORK(pid[0]);
 
-    if (pipe_->pid == -1)
-        pipe_->pid = pid[0];
-
+    if (pipe_->pid == -1) 
+        pipe_->set_pid(pid[0]);
+    
     ASSERT2(setpgid, pid[0], pipe_->pid);
 
     if (pid[0] == 0) {
@@ -237,7 +235,9 @@ void Shell::visit(Pipe* pipe_) {
 
 
     if (!pipe_->bg) {
-        ASSERT2(tcsetpgrp, 0, pipe_->pid);
+        if (shell_pid == getpid())
+            ASSERT2(tcsetpgrp, 0, pipe_->pid);
+
         wait_on_pid(-pipe_->pid);
         wait_on_pid(-pipe_->pid);
     }
@@ -246,9 +246,7 @@ void Shell::visit(Pipe* pipe_) {
 }
 
 
-
-
-Shell::Shell() : parser(Parser()), cont(true), completed(false), last(0) { 
+Shell::Shell() : parser(Parser()), cont(true), completed(false), last(0), shell_pid(getpid()) { 
 
     signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
@@ -264,7 +262,34 @@ Shell::Shell() : parser(Parser()), cont(true), completed(false), last(0) {
         history[i] = "";
 }
 
+
+static vector<pid_t> get_children(pid_t pid) {
+    string path = "/proc/" + std::to_string(pid) + "/task/" + std::to_string(pid) + "/children";
+
+    FILE* fp = fopen(path.data(), "r");
+
+    vector<pid_t> children;
+    int cpid;
+    while (fscanf(fp, "%d", &cpid) != EOF) {
+        // fprintf(stderr, "cpid: %d\n", cpid);
+        children.push_back(cpid);
+    }
+
+    fclose(fp);
+
+    return children;
+}
+
+static void kill_children(pid_t pid) {
+    for (pid_t& child : get_children(pid)) {
+        kill_children(child);
+        kill(child, 9);
+    }
+}
+
 Shell::~Shell() {
+    // delete left processes
+    kill_children(getpid());
 }
 
 string Shell::read() {
