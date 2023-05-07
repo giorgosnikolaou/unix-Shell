@@ -74,7 +74,6 @@ Command* Parser::piped_cmd(BasicCommand* left) {
 }
 Command* Parser::command_end(Command* command) {
     command->bg = consume_on_cond(BG);
-    printf("\tbg : %d\n", command->bg);
     return command;
 }
 

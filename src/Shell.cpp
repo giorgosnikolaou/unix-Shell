@@ -267,13 +267,14 @@ static vector<pid_t> get_children(pid_t pid) {
     string path = "/proc/" + std::to_string(pid) + "/task/" + std::to_string(pid) + "/children";
 
     FILE* fp = fopen(path.data(), "r");
+    
+    if (!fp)
+        throw Exception(path + " does not exist!");
 
     vector<pid_t> children;
     int cpid;
-    while (fscanf(fp, "%d", &cpid) != EOF) {
-        // fprintf(stderr, "cpid: %d\n", cpid);
+    while (fscanf(fp, "%d", &cpid) != EOF) 
         children.push_back(cpid);
-    }
 
     fclose(fp);
 

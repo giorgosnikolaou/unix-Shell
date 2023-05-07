@@ -17,7 +17,7 @@ SRCS    := $(wildcard $(SRC)/*.cpp)
 OBJS    := $(patsubst $(SRC)/%.cpp,$(SRC)/%.o,$(SRCS)) $(MAIN)/main.o
 
 # Executable
-EXEC = main
+EXEC = mysh
 
 # Command line arguments
 ARGS = 
