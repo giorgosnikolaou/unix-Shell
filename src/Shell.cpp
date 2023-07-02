@@ -75,7 +75,7 @@ bool Shell::check_custom(BasicCommand* bc) {
 
             size_t num = std::stoi(bc->argv[1]);
 
-            if (num > last || num < 1)
+            if (num > count || num < 1)
                 throw Exception("history: out of range");
             
             parse_run(history[num - 1]);
@@ -83,12 +83,12 @@ bool Shell::check_custom(BasicCommand* bc) {
             return true;
         }
 
-        for (size_t i = 0, j = 1; i < MAX_HISTORY; i++) {
-            if (history[(last + i) % MAX_HISTORY].compare("") != 0)
-                printf("[%2ld] %s", j++, history[(last + i) % MAX_HISTORY].data());
+        for (size_t i = 0; i < count; i++) {
+            if (history[(start + i) % MAX_HISTORY].compare("") != 0) 
+                printf("[%2ld] %s", i + 1, history[(start + i) % MAX_HISTORY].data());
         }
 
-        // add_history("history");
+        add_history("history");
         
         return true;
     }
@@ -246,7 +246,7 @@ void Shell::visit(Pipe* pipe_) {
 }
 
 
-Shell::Shell() : parser(Parser()), cont(true), completed(false), last(0), shell_pid(getpid()) { 
+Shell::Shell() : parser(Parser()), cont(true), completed(false), start(0), end(MAX_HISTORY - 1), count(0), shell_pid(getpid()) { 
 
     signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
@@ -289,7 +289,6 @@ static void kill_children(pid_t pid) {
 }
 
 Shell::~Shell() {
-    // delete left processes
     kill_children(getpid());
 }
 
@@ -301,13 +300,18 @@ string Shell::read() {
 
 
 void Shell::add_history(string c) {
-    history[last++] = c;
-    last %= MAX_HISTORY;
-    completed = completed || last == 0;
+    if (count == MAX_HISTORY)
+        start++;
+    else
+        count++;
+
+    history[end] = c;
+
+    end = (end + 1) % MAX_HISTORY;
 }
 
 void Shell::parse_run(string input, string hist) {
-    size_t lastb = last;
+    size_t lastc = count;
 
     Node* root = NULL;
 
@@ -323,7 +327,7 @@ void Shell::parse_run(string input, string hist) {
 
     if (hist.compare("") != 0)
         add_history(hist + "\n");
-    else if (last == lastb) 
+    else if (count == lastc) 
         add_history(input);
 }
 

@@ -22,7 +22,9 @@ class Shell : public Visitor {
         map<string, string> aliases;
         
         bool completed;
-        size_t last;
+        size_t start;
+        size_t end;
+        size_t count;
         string history[MAX_HISTORY];
         void parse_run(string input, string hist = "");
 

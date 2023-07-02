@@ -1,5 +1,0 @@
-1-Pass : my_exec a b c d "aight'*" < my_file | grep *hello | cat
-2-Pass : my_exec a b c d < a  b < aa >> a > a
-3-Pass : my_exec<a
-4-Error: my_exec<
-
